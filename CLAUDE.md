@@ -136,7 +136,7 @@ These paths are listed in `.gitignore`. Do not remove them from `.gitignore` und
 
 ---
 
-## 7. Research Integrity Rules
+## 8. Research Integrity Rules
 
 Full canonical list: [`docs/INTEGRITY-RULES.md`](docs/INTEGRITY-RULES.md)
 
@@ -153,3 +153,88 @@ Short reference:
 9. If merge keys are ambiguous or missing, stop and ask — never guess
 10. Preserve an evidence trail for every table, figure, and number: script path + log path + output path
 11. Keep code execution separate from narrative interpretation
+
+---
+
+## 9. Survey Microdata Pipeline — Engineering Rules
+
+Lessons distilled from CHNS (2026-05-29) and CHARLS (2026-06-02) pipeline runs. Apply these rules to any new survey dataset pipeline.
+
+### 9.1 Codebook Requirements
+
+**Every codebook CSV must include a `description` column** populated from the source data's native variable labels.
+
+- For Stata `.dta` files: read labels via `pyreadstat` metadata — `meta.column_labels` (list aligned with `meta.column_names`)
+- Write a dedicated enrichment script (e.g., `*_08_enrich_codebook.py`) that scans all raw `.dta` files with `metadataonly=True` and back-fills descriptions into the codebook after export
+- Pipeline-derived columns (e.g., `WAVE`, `N_CHILDREN_W2013`, `EXIT_INTERVIEWED_W2020`) have no Stata label; add manual descriptions in the enrichment script
+- Target coverage ≥ 99%; log how many variables received descriptions and how many remain empty
+- Column order in codebook: `variable_name`, `description`, then statistics columns
+
+### 9.2 Memory Management for Wide DataFrames
+
+CHARLS-style survey data routinely produces panels with 10,000–25,000 columns after cross-wave stacking. These rules prevent OOM failures:
+
+1. **Indicator join must use key columns only.** In `do_merge`, the intermediate join used to count matched/unmatched rows must operate on `left[keys]`, never on the full left panel:
+   ```python
+   # WRONG — copies entire 20k-col panel:
+   ind = left.merge(right[keys], on=keys, how="left", indicator=True)
+   # CORRECT — copies only key columns:
+   ind = left[keys].merge(right[keys].drop_duplicates(), on=keys, how="left", indicator=True)
+   ```
+
+2. **Supplement scripts must load key columns only.** Any script that merges auxiliary modules into an already-wide panel should:
+   - Load only `[ID, WAVE, HOUSEHOLDID, COMMUNITYID]` from the wide parquet (not all 19k+ cols)
+   - Merge supplements against this slim key frame → save as a separate `*_supplement.parquet`
+   - Let the export script do the final column-join
+
+3. **Parquet intermediate files are preferred** over CSV for intermediate stages (faster I/O, preserves dtypes). Use `df.to_parquet()` with `write_parquet()` wrapper that calls `clean_dtypes()` first.
+
+4. **CSV export for very wide panels** should be done in row chunks (`pd.read_csv(..., chunksize=N)` or `pq.ParquetFile.iter_batches(batch_size=N)`) to avoid loading the full panel into RAM.
+
+### 9.3 Mixed-Type Column Handling (Stata Cross-Wave Stacking)
+
+When stacking `.dta` files from multiple waves with `pd.concat`, object-dtype columns can contain mixed Python types (e.g., `str` from one wave, `float` from another). This causes `ArrowTypeError` when writing to parquet. Always call `clean_dtypes(df)` before `df.to_parquet()`.
+
+The `clean_dtypes` function must:
+- Decode `bytes` → `str` (pyreadstat can return bytes for some Stata string variables)
+- For object columns with mixed `str + numeric`: check if ALL string values are empty (Stata missing sentinel `""`); if so, coerce the entire column to numeric via `pd.to_numeric`
+- For mixed str + numeric where strings have content: convert all values to `str`
+- Use head+tail sampling (e.g., 200 rows each) for type detection, NOT a full-column `.apply(type)` scan — the full scan is O(n × cols) and takes tens of minutes on wide DataFrames
+
+### 9.4 Merge Duplicate Column Prevention
+
+When merging modules into a growing panel with `suffixes=("", "_right")`, columns like `HOUSEHOLDID` and `COMMUNITYID` that exist in both left and right will generate `HOUSEHOLDID_right` in every merge, accumulating duplicates.
+
+**Rule:** In the pre-merge drop step, drop ALL non-key columns that already exist in the panel — including `HOUSEHOLDID` and `COMMUNITYID`. Do not exempt them:
+
+```python
+# WRONG — HOUSEHOLDID/COMMUNITYID exempted, causing _right chains:
+drop = [c for c in module.columns if c in existing and c not in keys + ["HOUSEHOLDID", "COMMUNITYID"]]
+
+# CORRECT — drop everything already in panel except merge keys:
+drop = [c for c in module.columns if c in existing and c not in keys]
+```
+
+As a safety net, `write_parquet()` should also deduplicate column names before writing:
+```python
+df = df.loc[:, ~df.columns.duplicated()]
+```
+
+### 9.5 Cross-Wave File Naming Differences
+
+Survey waves often differ in file naming conventions. Always use a case-insensitive file finder (`find_file()` helper) rather than hardcoded names:
+
+- CHARLS 2011: all filenames **lowercase** (`demographic_background.dta`)
+- CHARLS 2013+: **CamelCase** (`Demographic_Background.dta`)
+- Module availability varies by wave (e.g., no `Health_Care_and_Insurance.dta` in 2020)
+- Variable availability within same-named modules varies by wave
+
+Encode wave→filename mappings explicitly in the script (a dict per module) rather than relying on glob patterns.
+
+### 9.6 Python Environment Notes
+
+- CHARLS pipeline uses: `C:\Users\zhuch\.conda\envs\gnn\python.exe` (Python 3.10)
+- CHNS pipeline used: `C:\Users\zhuch\.conda\envs\snipar_env\python.exe` (Python 3.9, currently broken)
+- Required packages: `pandas`, `pyreadstat`, `pyarrow`
+- Install via: `gnn_python -m pip install pyreadstat pyarrow pandas --only-binary :all:`
+- Python 3.9 note: avoid `X | Y` type unions and `list[str]` annotations; use `Optional[X]` and `List[str]` from `typing`

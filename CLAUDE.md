@@ -238,3 +238,118 @@ Encode wave→filename mappings explicitly in the script (a dict per module) rat
 - Required packages: `pandas`, `pyreadstat`, `pyarrow`
 - Install via: `gnn_python -m pip install pyreadstat pyarrow pandas --only-binary :all:`
 - Python 3.9 note: avoid `X | Y` type unions and `list[str]` annotations; use `Optional[X]` and `List[str]` from `typing`
+
+---
+
+## 10. Paper Replication — Subsample Extraction
+
+This repo supports extracting analysis-ready subsamples from raw survey panels to replicate published papers. The pattern was established with the CHARLS LTCI replication (Zhang et al. 2026, 2026-06-03).
+
+### 10.1 Three-Script Pipeline
+
+Every paper replication subsample follows three scripts, numbered `<dataset>_10/11/12` (or higher to avoid collision with the main pipeline):
+
+| Script | Role | Output |
+|--------|------|--------|
+| `*_10_discover_vars.py` | Read `.dta` metadata with `metadataonly=True` across all relevant waves and modules; log all variable names + Stata labels; flag variables matching paper keywords | `data/processed/*_10_var_list.csv` |
+| `*_11_<paper>_subsample.py` | Load only the needed columns per wave, apply the paper's sample filter, construct all outcome/treatment/control variables, save the analysis-ready dataset | `data/processed/*_subsample.parquet` + `.csv` |
+| `*_12_<paper>_codebook.py` | Read the subsample parquet, compute per-variable statistics, attach paper-level definitions and target means, flag mismatches | `data/processed/*_codebook.csv` |
+
+**All three outputs go to `data/processed/`** — never `data/intermediate/` for files the researcher will use directly.
+
+### 10.2 Variable Discovery Protocol
+
+Before writing `charls_11`, always run `charls_10` first to confirm actual variable names for each concept. Do not assume variable names from paper descriptions alone — names differ across waves and dataset versions.
+
+The discovery script must:
+- Use `pyreadstat.read_dta(path, metadataonly=True)` — never load full data for discovery
+- Scan 8–10 modules × 3+ waves in a single run
+- Log every variable whose name OR label matches the keyword list
+- Export a CSV with columns `[wave, module, file, var_name, label, flagged]`
+
+### 10.3 Wave-Specific Variable Routing (CHARLS Lessons)
+
+CHARLS variable names and encoding change across waves. Hard-won rules from the LTCI replication:
+
+**Naming conventions:**
+- CHARLS 2011: all module filenames **lowercase** (`family_transfer.dta`)
+- CHARLS 2013+: **CamelCase** (`Family_Transfer.dta`)
+- CHARLS 2018: some modules renamed (`Work_Retirement.dta`, not `Work_Retirement_and_Pension.dta`)
+- Always use `find_file(wave_dir, *candidates)` — never hardcode a single filename
+
+**Demographic variable priority per wave:**
+
+| Variable | 2011 | 2013 | 2018 |
+|----------|------|------|------|
+| Birth year | `BA002_1` | `ZBA002_1` (preloaded) then `BA002_1` | `BA004_W3_1` (full coverage) |
+| Gender | `RGENDER` | Not in demo file — fill from 2011 baseline | `XRGENDER` |
+| Hukou | `BC001` | `ZBC001` (preloaded) | Not in demo file — fill from baseline |
+| Marital | `BE001` | `BE001` | `BE001` |
+| Education | `BD001` | `ZBD001` (preloaded; `BD001` = update only, sparse) | `BD001_W2_4` |
+
+**ID format differs across waves** (2011 = 11 chars, 2013+ = 12 chars). Cross-wave baseline filling by ID fails without an official crosswalk file. Document this limitation; do not silently assume the fill succeeded.
+
+**When a variable is "preloaded" (Z-prefix in 2013):** use it when the direct variable is sparse (update-only). Always coalesce: `series.fillna(other_series)`.
+
+### 10.4 CHARLS-Specific Variable Encoding Gotchas
+
+These encoding rules were validated against paper Table 2 descriptive statistics and must be applied to any future CHARLS replication:
+
+**Education (BD001):**
+- Value 4 = primary school **graduate** (小学毕业) — this is "primary or less"
+- Value 5 = middle school (初中毕业) — this is where "middle school and above" starts
+- Correct threshold: `BD001 >= 5` (NOT `>= 4`)
+
+**Health insurance (EA001S / EA001_W4_S):**
+- 2011/2013: multi-select, each variable is **NULL when not selected**, value = type number when selected. Detection: `.notna().any()`
+- 2018: multi-select, but each variable is **0 when not selected**, non-zero when selected. Detection: `(df[ins_cols] != 0).any(axis=1)`
+- "No insurance" sentinel: `EA001S10` (2011/2013) / `EA001_W4_S12` (2018) — non-null/non-zero → uninsured
+
+**Marital status (BE001):**
+- Value 1 = married, living together
+- Value 2 = married, living apart (temporary separation)
+- Paper's "Married = 0, Others = 1": use `BE001 > 2` (values 1 AND 2 are "married")
+
+**Non-agricultural employment (CHARLS 2011/2013):**
+- FA001=1 respondents (agricultural workers) are routed **away from FA002** — they never answer it
+- FC014 captures whether agricultural-primary workers also held non-agri jobs
+- Correct construction: `FA002==1 OR FC014==1 OR FA003==1 OR FC015==1`
+- Do NOT use FA002 alone; it misses the agri+non-agri group entirely
+
+**Agricultural employment:**
+- Use `FC001` ("worked for OTHER farmers/employers for wage"), NOT `FA001` ("any agricultural work ≥10 days" — includes own-farm)
+
+**City identification for LTCI pilots:**
+- PSU.dta (2011/2013) contains a `CITY` string field with city name in Chinese
+- Use partial string matching against the 12 pilot city names
+- 2018 has no PSU file; use `Sample_Infor.dta` + community ID mapping from 2011/2013 PSU
+
+### 10.5 Codebook Validation Against Paper
+
+The `*_12_codebook.py` script must include a `mean_match` column comparing our constructed variable means against the paper's Table 2 (or equivalent descriptive statistics table). Thresholds:
+
+| Match label | Criterion |
+|-------------|-----------|
+| `CLOSE` | `|our_mean − paper_mean| < 0.02` |
+| `MODERATE` | `0.02 ≤ diff < 0.10` |
+| `DIFFERS` | `diff ≥ 0.10` |
+
+Any variable marked `DIFFERS` must have a documented explanation in the codebook `notes` column before the subsample is considered ready for regression.
+
+### 10.6 CHARLS LTCI Replication — Reference Numbers
+
+Baseline established 2026-06-03. Scripts: `charls_10/11/12_*`. Target paper: Zhang et al. (2026).
+
+| Variable | Achieved | Paper | Status |
+|----------|----------|-------|--------|
+| Sample N | 4,665 | 4,626 | ✓ |
+| Treat=1 | 358 | 357 | ✓ |
+| MARITAL | 0.075 | 0.074 | CLOSE |
+| EDUCATION | 0.530 | 0.534 | CLOSE |
+| HEALTH_INSURED | 0.960 | 0.965 | CLOSE |
+| HUKOU | 0.303 | 0.290 | CLOSE |
+| AGRI_EMPLOY | 0.057 | 0.075 | CLOSE |
+| NON_AGRI_EMPLOY | 0.401 | 0.462 | MODERATE |
+| GENDER | 0.473 | 0.450 | MODERATE |
+
+Remaining gap for `NON_AGRI_EMPLOY` (6.1 pp): attributable to questionnaire routing in 2011/2013 — some self-employed and family business workers are not captured by available CHARLS variables. Documented in codebook.

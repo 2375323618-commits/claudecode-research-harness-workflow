@@ -499,18 +499,36 @@ def construct_vars(df: pd.DataFrame, wave: int, log) -> pd.DataFrame:
         df["MARITAL"] = float("nan")
         log.warning("W%d: Marital status not found", wave)
 
-    # Education: Middle school and above (BD001>=4)=1, Primary or below=0
-    # 2011: BD001; 2013: ZBD001; 2018: BD001_W2_4
+    # Education: Middle school and above = 1, Primary or less = 0.
+    # CHARLS BD001 coding: 1=illiterate, 2=literate no school, 3=partial primary,
+    #   4=PRIMARY COMPLETE (小学毕业), 5=MIDDLE SCHOOL (初中) ← paper's threshold,
+    #   6=vocational HS, 7=senior HS, 8=2yr college, 9=4yr college, 10=grad.
+    # Threshold: BD001 >= 5 (NOT >=4; value 4 is primary school, not middle school).
+    #
+    # Variable priority per wave:
+    #   2011: BD001 (direct, full coverage)
+    #   2013: ZBD001 (preloaded from 2011, more complete); BD001 = update-only, mostly NaN
+    #   2018: BD001_W2_4 (most recently confirmed education level, full coverage)
+    if wave == 2013:
+        edu_pref = ["ZBD001", "BD001", "BD001_W2_4"]   # ZBD001 first for 2013
+    elif wave == 2018:
+        edu_pref = ["BD001_W2_4", "BD001", "ZBD001"]
+    else:
+        edu_pref = ["BD001", "ZBD001", "BD001_W2_4"]
     edu_assigned = False
-    for ecol in ["BD001", "ZBD001", "BD001_W2_4"]:
+    for ecol in edu_pref:
         if ecol in df.columns:
             bd = _to_num(df[ecol])
-            df["EDUCATION"] = (bd >= 4).astype(float)
-            edu_assigned = True
-            break
+            if bd.notna().sum() > len(df) * 0.5:   # skip sparse update-only vars
+                df["EDUCATION"] = (bd >= 5).astype(float)
+                df.loc[bd.isna(), "EDUCATION"] = float("nan")
+                edu_assigned = True
+                log.info("W%d EDUCATION: using %s, pct_educ=%.1f%%",
+                         wave, ecol, 100.0 * (bd >= 5).sum() / bd.notna().sum())
+                break
     if not edu_assigned:
         df["EDUCATION"] = float("nan")
-        log.warning("W%d: Education not found", wave)
+        log.warning("W%d: Education not found (all candidates sparse)", wave)
 
     # ── Self-reported health ────────────────────────────────────────────
     # CHARLS self-rated health (DA001) distribution: modal at 4-5 in 2011/2013.

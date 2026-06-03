@@ -539,28 +539,40 @@ def construct_vars(df: pd.DataFrame, wave: int, log) -> pd.DataFrame:
         log.warning("W%d: Chronic disease vars not found", wave)
 
     # ── Health insurance ──────────────────────────────────────────────
-    # insured = 1 if any insurance type is covered (exclude "no insurance" column)
+    # Encoding differs across waves:
+    #   2011/2013: EA001S1-S9 are NULL for non-selected; NON-NULL (value=type#) when selected.
+    #              EA001S10 NON-NULL → explicitly "no insurance".
+    #              Detection: .notna().any()
+    #   2018: EA001_W4_S1-S11 always have a value: 0=not selected, non-zero=selected.
+    #              EA001_W4_S12 non-zero → explicitly "no insurance".
+    #              Detection: != 0 (not .notna(), since everyone has a row)
     if wave in [2011, 2013]:
         ins_cols = [f"EA001S{i}" for i in range(1, 10) if f"EA001S{i}" in df.columns]
         no_ins = "EA001S10"
-    else:
+        if ins_cols:
+            has_any = df[ins_cols].notna().any(axis=1)
+            df["HEALTH_INSURED"] = has_any.astype(float)
+            if no_ins in df.columns:
+                df.loc[df[no_ins].notna(), "HEALTH_INSURED"] = 0.0
+        else:
+            df["HEALTH_INSURED"] = float("nan")
+            log.warning("W%d: Insurance cols not found", wave)
+    else:  # 2018
         ins_cols = [f"EA001_W4_S{i}" for i in range(1, 12) if f"EA001_W4_S{i}" in df.columns]
         no_ins = "EA001_W4_S12"
-
-    if ins_cols:
-        # CHARLS multi-select insurance: EA001S1={1}, EA001S2={2}, ..., EA001S10={10}
-        # Each variable is NON-NULL only when selected; value equals the type number.
-        # Insured = 1 if ANY of the positive insurance columns is non-null.
-        # Not insured = 0 if the "no insurance" column is non-null.
-        has_any = df[ins_cols].notna().any(axis=1)
-        df["HEALTH_INSURED"] = has_any.astype(float)
-        # Override: if "no insurance" is explicitly selected → 0
-        if no_ins in df.columns:
-            explicitly_uninsured = df[no_ins].notna()
-            df.loc[explicitly_uninsured, "HEALTH_INSURED"] = 0.0
-    else:
-        df["HEALTH_INSURED"] = float("nan")
-        log.warning("W%d: Health insurance vars not found", wave)
+        if ins_cols:
+            # Non-zero means the type was selected (0 = not selected)
+            has_any = (df[ins_cols].apply(pd.to_numeric, errors="coerce") != 0).any(axis=1)
+            df["HEALTH_INSURED"] = has_any.astype(float)
+            if no_ins in df.columns:
+                explicitly_uninsured = _to_num(df[no_ins]) != 0
+                df.loc[explicitly_uninsured, "HEALTH_INSURED"] = 0.0
+            n_ins = int(df["HEALTH_INSURED"].sum())
+            log.info("W%d HEALTH_INSURED: %d insured / %d total (%.1f%%)",
+                     wave, n_ins, len(df), 100.0 * n_ins / len(df))
+        else:
+            df["HEALTH_INSURED"] = float("nan")
+            log.warning("W%d: Insurance cols (EA001_W4_S*) not found", wave)
 
     # ── Household income (log) ─────────────────────────────────────────
     if "HH_INCOME_RAW" in df.columns:

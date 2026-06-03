@@ -163,7 +163,7 @@ def load_wave(wave: int, log) -> pd.DataFrame:
     wr.columns = [c.upper() for c in wr.columns]
     wr_cols_need = []
     if wave in [2011, 2013]:
-        for c in ["FA001", "FA002", "FA003", "FC014"]:
+        for c in ["FA001", "FA002", "FA003", "FC001", "FC014", "FC015"]:
             if c in wr.columns:
                 wr_cols_need.append(c)
     else:
@@ -394,31 +394,38 @@ def construct_vars(df: pd.DataFrame, wave: int, log) -> pd.DataFrame:
     # NON_AGRI_EMPLOY: ≥1hr non-agri paid/business work last week OR on leave from non-agri job
     # AGRI_EMPLOY: worked for OTHER farmers/employers AND paid ≥10 days past year
     #
-    # Key CHARLS variable mapping:
-    # Non-agri work:
-    #   2011/2013: FA002 = "Work for ≥1hr Last Week/Month" asked AFTER agricultural routing,
-    #              so it captures non-agricultural paid/self-employed/unpaid-family work.
-    #              FA003 = "Temporarily Laid-off/Sick Leave/Job Training" from non-agri job.
-    #   2018:      FA002_W4 = "Nonfarm Work (≥1hr Last Month) or Not" (explicitly non-farm).
-    #              FA003 = same.
+    # Key CHARLS variable mapping — NON_AGRI_EMPLOY:
     #
-    # Agricultural employment (hired, paid ≥10 days):
-    #   All waves: FC001 = "Worked for Other Farmers (for wage)"
+    # 2011/2013 questionnaire routing:
+    #   FA001=2 respondents (no agri work) → asked FA002 (non-agri ≥1hr last week/month)
+    #   FA001=1 respondents (agri workers)  → routed through agri section, then asked
+    #     FC014 ("Did you also work in wage/self-employed/family business last week?")
+    #   FA003 = "Have a job but temporarily on leave/sick/training" (non-agri)
+    #   FC015 = "Temporarily laid-off from non-agri job" (2011 equivalent of FA003)
+    #
+    #   → Union: FA002==1 OR FC014==1 OR FA003==1 OR FC015==1
+    #     captures BOTH pure non-agri workers AND agri-primary workers who also have non-agri jobs
+    #
+    # 2018: FA002_W4 is asked of everyone (explicitly "nonfarm"), so FA002_W4 OR FA003 suffices.
 
     def _get(col):
         return _to_num(df.get(col, pd.Series(float("nan"), index=df.index)))
 
     if wave in [2011, 2013]:
-        fa002 = _get("FA002")
-        fa003 = _get("FA003")
-        fc001 = _get("FC001")
-        df["NON_AGRI_EMPLOY"] = ((fa002 == 1) | (fa003 == 1)).astype(float)
+        fa002  = _get("FA002")
+        fa003  = _get("FA003")
+        fc001  = _get("FC001")
+        fc014  = _get("FC014")
+        fc015  = _get("FC015")
+        df["NON_AGRI_EMPLOY"] = (
+            (fa002 == 1) | (fc014 == 1) | (fa003 == 1) | (fc015 == 1)
+        ).astype(float)
         df["AGRI_EMPLOY"] = (fc001 == 1).astype(float)
 
     else:  # 2018
         fa002w4 = _get("FA002_W4")
-        fa003 = _get("FA003")
-        fc001 = _get("FC001")
+        fa003   = _get("FA003")
+        fc001   = _get("FC001")
         df["NON_AGRI_EMPLOY"] = ((fa002w4 == 1) | (fa003 == 1)).astype(float)
         df["AGRI_EMPLOY"] = (fc001 == 1).astype(float)
 

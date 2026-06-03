@@ -7,7 +7,7 @@
 
 **作者：** 朱 晨 | 遗传社科研究 Chen Zhu | China Agricultural University (CAU)
 
-**最后更新：** 2026-05-29
+**最后更新：** 2026-06-03
 
 <p align="center">
   <strong>Specify → Audit → Clean → Plan → Work → Review → Release</strong><br>
@@ -22,6 +22,11 @@
   <code>/research-harness-work</code> ·
   <code>/research-harness-review</code> ·
   <code>/research-harness-release</code>
+</p>
+
+<p align="center">
+  <strong>+ 按论文定义提取分析就绪子样本</strong><br>
+  <em>给定任意已发表论文，从原始调查面板中提取与论文样本筛选、变量构造和编码一致的子样本及 codebook</em>
 </p>
 
 <p align="center">
@@ -171,12 +176,51 @@ Claude Code Research Harness 把这些风险转化为显式检查点：
 | 只想检查一个新数据集，不修改它 | `/research-harness-audit` |
 | 清理一个混乱的调查数据文件 | `/research-harness-audit` → `/research-harness-clean` |
 | 合并个人、家庭、社区和政策时间文件 | `/research-harness-clean` |
+| **按论文定义提取变量集和子样本** | **见"论文复现子样本提取"一节** |
 | 把一个研究想法变成可执行的实证计划 | `/research-harness-setup` → `/research-harness-plan` |
 | 只运行已批准的回归、表格和图形任务 | `/research-harness-work <task-id>` |
 | 检查已有结果是否可信 | `/research-harness-review` |
 | 投稿前整理复制包 | `/research-harness-release` |
 
 Harness 支持局部进入，但每个命令都会提示：如果跳过前序阶段，会损失哪些检查、增加哪些风险。
+
+---
+
+## 论文复现子样本提取
+
+除七阶段主流程外，这个框架还支持一种独立模式：**给定一篇已发表论文，从原始调查面板中提取与论文完全对应的分析就绪子样本**。
+
+适用场景：
+
+- 复现某篇论文的基准回归之前，需要先还原论文的样本构造和变量定义
+- 用同一个原始数据集、不同的样本或变量定义进行比较或扩展
+- 验证某篇论文的描述统计数字是否可以从原始数据中复现
+
+**标准流程（三脚本）：**
+
+```text
+*_10_discover_vars.py   # 读取原始 .dta 元数据，定位论文所需变量的实际名称
+*_11_<paper>_subsample.py  # 按论文筛选条件和变量定义提取子样本
+*_12_<paper>_codebook.py   # 生成含论文变量定义和均值对比的 codebook
+```
+
+所有输出写入 `data/processed/`：
+
+```text
+data/processed/
+├── *_var_list.csv          # 原始变量元数据（变量名 + Stata 标签）
+├── *_subsample.parquet     # 分析就绪子样本（主文件）
+├── *_subsample.csv         # 同上，CSV 格式
+└── *_codebook.csv          # 含论文定义、来源说明和均值对比的变量说明表
+```
+
+**质量验证标准：**
+
+codebook 中对每个构造变量标注与论文描述统计表的均值差距（CLOSE / MODERATE / DIFFERS）。`DIFFERS` 级别的变量须在 `notes` 列记录已知差距成因，方可视为就绪。
+
+**适用数据类型：**
+
+多波次调查面板（年度或隔年追踪）、含多个模块的大型微观数据、变量名和编码跨波次存在差异的数据集。详细的工程规则和已积累的调查数据编码经验见 `CLAUDE.md` § 9–10。
 
 例如，`/research-harness-clean` 可以单独使用，但更安全的最小路径是：
 
@@ -513,6 +557,7 @@ your-project/
 | 面板数据、调查数据、行政数据 | 非常适合 |
 | DiD、IV、RD、事件研究、RCT | 非常适合 |
 | 数据清洗和多源数据合并 | 非常适合 |
+| 按论文定义提取子样本和变量集 | 非常适合 |
 | 复制包和投稿前核查 | 非常适合 |
 | 可复现实证研究教学 | 非常适合 |
 | 没有研究设计需求的纯机器学习 | 部分适合 |

@@ -164,7 +164,7 @@ def main():
     log = get_logger("charls_12", "charls_12_codebook.log")
     log.info("=== charls_12_subsample_codebook.py START ===")
 
-    in_path = INTER_DIR / "charls_ltci_subsample.parquet"
+    in_path = PROC_DIR / "charls_ltci_subsample.parquet"
     if not in_path.exists():
         log.error("Subsample not found: %s — run charls_11 first", in_path)
         sys.exit(1)

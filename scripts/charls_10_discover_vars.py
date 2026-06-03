@@ -10,7 +10,7 @@ from pathlib import Path
 import pyreadstat
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _charls_utils import get_logger, find_file, WAVE_DIRS, INTER_DIR, LOG_DIR
+from _charls_utils import get_logger, find_file, WAVE_DIRS, INTER_DIR, PROC_DIR, LOG_DIR
 
 WAVES = [2011, 2013, 2018]
 
@@ -44,8 +44,8 @@ def main() -> None:
     log = get_logger("charls_10", "charls_10_vars.log")
     log.info("=== charls_10_discover_vars.py START ===")
 
-    INTER_DIR.mkdir(parents=True, exist_ok=True)
-    out_csv = INTER_DIR / "charls_10_var_list.csv"
+    PROC_DIR.mkdir(parents=True, exist_ok=True)
+    out_csv = PROC_DIR / "charls_10_var_list.csv"
     rows = []
 
     for wave in WAVES:

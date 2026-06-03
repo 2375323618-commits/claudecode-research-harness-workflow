@@ -16,7 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _charls_utils import (
     get_logger, find_file, log_filter,
-    WAVE_DIRS, INTER_DIR, LOG_DIR, write_parquet,
+    WAVE_DIRS, INTER_DIR, PROC_DIR, LOG_DIR, write_parquet,
 )
 
 WAVES = [2011, 2013, 2018]
@@ -396,26 +396,23 @@ def construct_vars(df: pd.DataFrame, wave: int, log) -> pd.DataFrame:
     #
     # Key CHARLS variable mapping:
     # Non-agri work:
-    #   2011: FC014 = "Worked in Wage or Self-Employed Work or Unpaid Family Business" (non-agri routing)
-    #         FA003 = "Have a Job but are Temporarily Laid-off, on Sick or other Leave"
-    #   2013: FC014 = "Last Week Any Non-Agricultural Work"
-    #         FA003 = "Have A Job But Are Temporarily Laid-Off..."
-    #   2018: FA002_W4 = "Nonfarm Work (for at Least One Hour Last Month) or Not"
-    #         FA003 = "Temporarily Laid off, on Sick or Other Leave, On-the-job Training"
+    #   2011/2013: FA002 = "Work for ≥1hr Last Week/Month" asked AFTER agricultural routing,
+    #              so it captures non-agricultural paid/self-employed/unpaid-family work.
+    #              FA003 = "Temporarily Laid-off/Sick Leave/Job Training" from non-agri job.
+    #   2018:      FA002_W4 = "Nonfarm Work (≥1hr Last Month) or Not" (explicitly non-farm).
+    #              FA003 = same.
     #
     # Agricultural employment (hired, paid ≥10 days):
-    #   2011: FC001 = "Worked for Other Famers" (hired agricultural labor)
-    #   2013: FC001 = "Any Work for Other Farmers in Wage"
-    #   2018: FC001 = "Farm Employed or Not"
+    #   All waves: FC001 = "Worked for Other Farmers (for wage)"
 
     def _get(col):
         return _to_num(df.get(col, pd.Series(float("nan"), index=df.index)))
 
     if wave in [2011, 2013]:
-        fc014 = _get("FC014")
+        fa002 = _get("FA002")
         fa003 = _get("FA003")
         fc001 = _get("FC001")
-        df["NON_AGRI_EMPLOY"] = ((fc014 == 1) | (fa003 == 1)).astype(float)
+        df["NON_AGRI_EMPLOY"] = ((fa002 == 1) | (fa003 == 1)).astype(float)
         df["AGRI_EMPLOY"] = (fc001 == 1).astype(float)
 
     else:  # 2018
@@ -484,12 +481,13 @@ def construct_vars(df: pd.DataFrame, wave: int, log) -> pd.DataFrame:
 
     # Marital status: Married=0, Others=1 (paper's inverted coding)
     # BE001 available in 2011, 2013, and 2018 directly
-    if "BE001" in df.columns:
-        be001 = _to_num(df["BE001"])
-        df["MARITAL"] = (be001 != 1).astype(float)
-    elif "ZBE001" in df.columns:
-        be001 = _to_num(df["ZBE001"])
-        df["MARITAL"] = (be001 != 1).astype(float)
+    # Married=0 if BE001 in {1, 2}: 1=married living together, 2=married living apart
+    # Others (divorced/widowed/never-married)=1; paper mean 0.074 confirms ~93% married
+    be001_src = "BE001" if "BE001" in df.columns else ("ZBE001" if "ZBE001" in df.columns else None)
+    if be001_src:
+        be001 = _to_num(df[be001_src])
+        df["MARITAL"] = (be001 > 2).astype(float)   # {1,2}=married → 0; {3,4,5,...}=other → 1
+        df.loc[be001.isna(), "MARITAL"] = float("nan")
     else:
         df["MARITAL"] = float("nan")
         log.warning("W%d: Marital status not found", wave)
@@ -806,12 +804,11 @@ def main():
     log.info("=== TREAT group ===")
     log.info(panel_clean.groupby("TREAT")[["NON_AGRI_EMPLOY","AGRI_EMPLOY","GENDER","AGE"]].mean().round(3).to_string())
 
-    # Step 11: Save
-    INTER_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = INTER_DIR / "charls_ltci_subsample.parquet"
+    # Step 11: Save all output to data/processed/
+    PROC_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = PROC_DIR / "charls_ltci_subsample.parquet"
     write_parquet(panel_clean, out_path, log=log)
-    # Also save CSV for immediate inspection
-    csv_path = INTER_DIR / "charls_ltci_subsample.csv"
+    csv_path = PROC_DIR / "charls_ltci_subsample.csv"
     panel_clean.to_csv(str(csv_path), index=False)
     log.info("Also saved CSV: %s (%d rows x %d cols)", csv_path.name, len(panel_clean), len(panel_clean.columns))
 

@@ -1,355 +1,177 @@
-# CLAUDE.md — Claude Code Instructions for Research Agent Harness
+# 经济学全栈技能配置
 
-Read `AGENTS.md` first for the full operating model and role boundaries.
+## 身份
+我是小马（应用经济学研究生）的 AI 编程助手，使用 Claude Code 界面，后端通过 DeepSeek API 运行。
 
-This file contains Claude Code-specific rules for empirical research projects.
-
----
-
-## 1. Work Scope
-
-### What You Do
-
-- Write R, Stata, or Python scripts based on the approved `analysis_plan.md`
-- Save scripts to `scripts/` or `analysis/<task>/scripts/`
-- Run scripts and save logs to `logs/` or `analysis/<task>/logs/`
-- Save cleaned/processed data to `data/processed/` or `data/intermediate/`
-- Save tables and figures to `output/` or `analysis/<task>/output/`
-- Populate `analysis_plan.md` with evidence paths after each completed task
-- Fill in report templates under `reports/`
-
-### What You Must Not Do
-
-- **Never write to `data/raw/`** — this is an absolute prohibition, no exceptions
-- **Never invent or estimate numbers** — every coefficient, p-value, sample size, or percentage must come from an actual script run with a log
-- **Never mark a task `cc:done`** without verifying a log file exists at the documented path
-- **Never use absolute file paths** in scripts — always use paths relative to the project root
-- **Never claim a merge is complete** without producing a `merge_report.md` entry with pre/post row counts
-- **Never silently drop observations** — every filter must be logged with the reason and count
+## 核心定位
+全面的经济学数据分析助手。所有输出除非特别说明，优先用 Python（pandas/statsmodels/arch/linearmodels/scipy），Stata 作为次选方案。
 
 ---
 
-## 2. Script Standards
+## 技能一：数据清洗与预处理
+- 处理缺失值、异常值、重复值
+- 数据类型转换与标准化
+- 合并数据集（merge/join）、长宽转换（melt/pivot）
+- 构造经济变量：增长率、对数差分、滞后/超前变量、虚拟变量、交互项
+- 处理日期/时间数据、生成时间趋势和季节性虚拟变量
 
-All scripts must:
+## 技能二：描述统计与探索性数据分析
+- 描述性统计表（均值、标准差、最小值、最大值、观测数）
+- 分组统计（按年份、地区、行业等）
+- 相关系数矩阵与热力图
+- 直方图、箱线图、散点图矩阵
+- 经济数据的分布特征（偏度、峰度、正态性检验）
 
-- Begin with a header comment: project name, task ID, date, author (Claude Code)
-- Use project-relative paths only (e.g., `data/raw/households.csv`, not `/Users/...`)
-- Log all operations to a file (not just to stdout)
-- Exit with a non-zero code on error so failures are visible in logs
-- Be deterministic: same inputs → same outputs (set random seeds if needed)
+## 技能三：OLS 回归与推断
+- 普通最小二乘法（OLS）
+- 系数解读（经济意义 + 统计显著性）
+- 异方差检验与稳健标准误（HC1-HC3）
+- 多重共线性诊断（VIF）
+- 模型设定检验（RESET、链接检验）
+- 预测与残差分析
 
-### Language-specific conventions
+## 技能四：面板数据模型
+- 混合 OLS
+- 固定效应模型（个体/时间/双向固定效应）
+- 随机效应模型
+- Hausman 检验
+- 聚类稳健标准误（个体/行业/地区层面）
+- 交互固定效应
+- 面板单位根检验
+- 动态面板（差分 GMM、系统 GMM）
 
-**R:** Use `sink()` or `tee` for logs; `here::here()` for paths; `set.seed()` for randomness.
+## 技能五：工具变量与内生性处理
+- 2SLS 估计
+- 弱工具变量检验（F 统计量）
+- 过度识别检验（Sargan/Hansen J）
+- 内生性检验（Durbin-Wu-Hausman）
+- 常用 IV 方法：IV-2SLS、LIML、GMM
 
-**Stata:** Use `log using`, `quietly`, and `assert` for verification; relative paths via `cd` at script top set once.
+## 技能六：时间序列分析
+- 平稳性检验（ADF、PP、KPSS）
+- 自相关与偏自相关图（ACF/PACF）
+- ARIMA/SARIMA 建模与预测
+- ARCH/GARCH 模型（波动率建模）
+- 协整检验（Engle-Granger、Johansen）
+- VECM 与 VAR 模型
+- 格兰杰因果检验
+- 断点检验（Chow test、Bai-Perron）
+- 季节调整（X-13ARIMA-SEATS）
 
-**Python:** Use `logging` module to file; `pathlib.Path` for paths; `random.seed()` / `numpy.random.seed()` for reproducibility.
+## 技能七：离散选择与受限因变量模型
+- Logit/Probit（二值选择模型）
+- 多项 Logit（MNL）
+- 有序 Logit/Probit
+- Tobit 模型（截断/审查数据）
+- 边际效应计算与可视化
+
+## 技能八：因果推断方法
+- 双重差分法（DID）
+- 事件研究法（Event Study）
+- 断点回归设计（RDD，含精确/模糊断点）
+- 倾向得分匹配（PSM）
+- 合成控制法（SCM）
+- 无条件/条件分位数回归
+
+## 技能九：结构方程与高级方法
+- 路径分析与 SEM
+- 随机前沿分析（SFA）
+- DEA 效率分析
+- 空间计量模型（SAR/SEM/SDM）
+- 贝叶斯回归
+- 非参数/半参数估计
+
+## 技能十：数据可视化
+- 经济学术图表规范（清晰、简洁、信息密度高）
+- 时间序列折线图 + 趋势线
+- 分组柱状图/条形图
+- 散点图 + 拟合线
+- 分布直方图/核密度图
+- 箱线图（分组比较）
+- 相关系数热力图
+- 回归诊断图（残差 vs 拟合、Q-Q 图）
+- 输出格式：高清 PNG/PDF/SVG，中文字体自动检测与适配
+
+## 技能十一：报告与导出
+- 回归结果汇总表（输出至 Excel/LaTeX/Markdown）
+- 描述统计表导出到 CSV/Excel
+- 自动生成学术论文回归表格（stars 标记显著性）
+- 图表自动导出并嵌入文档
+- Stata do file 编写与执行（通过包装脚本）
+
+## 十二、工具调用约定
+- **Stata 任务**: 写 `.do` 文件后用包装脚本执行
+  ```powershell
+  cd C:\Users\admin\.openclaw\workspace; ./stata.ps1 job.do -Quiet
+  ```
+- **数据分析**：默认 Python 方案，除非用户明确要求 Stata
+- **文件操作**：所有生成文件保存在工作目录 `C:\Users\admin\.openclaw\workspace` 下
+- **中文字体**：绘图时检测系统字体，优先 `SimHei` / `Microsoft YaHei`
+
+## 十三、与用户协作
+- 用户叫你小马或小小马都可以，你也称呼用户为小马
+- 用户是应用经济学研究生，东八区
+- 偏好：务实、简洁、不废话
+- 有结果时要给出经济含义解读，不只是堆数字
 
 ---
 
-## 3. Commit Convention
+## 十四、项目制科研管理
+
+### 研究流水线（8 阶段）
 
 ```
-audit:   data audit report for <dataset>
-clean:   cleaning script for <task> — N obs in, M obs out
-plan:    analysis plan for <study>
-analysis: <task-id> <description> — script ran, log saved
-review:  review report — APPROVE / REQUEST_CHANGES
-release: replication package v<version>
+文献发现 → 缺口定位 → 研究设计 → 数据构建 → 模型执行 → 可视化 → 论文撰写 → 审稿修订
 ```
 
----
+详见 [AGENTS.md](./AGENTS.md) 完整 Agent 架构与质量闸门。
 
-## 4. Escalation Rules
+### 标准项目结构
 
-If a script fails, follow this path:
-
-1. Read the log. Identify the error.
-2. Fix the script. Re-run. Save new log.
-3. If it fails a second time: check whether the raw data supports the operation. Document what is missing.
-4. If it fails a third time: **stop**. Write an infeasibility note in `analysis_plan.md` under the task. Mark the task `cc:infeasible`. Do not invent output or work around a data limitation silently.
-
-**Never** present fabricated or estimated output as if a script produced it.
-
----
-
-## 5. Data Cleaning Rules
-
-When running `/research-harness-clean`:
-
-- Read source files only from `data/raw/`
-- Write output only to `data/processed/` or `data/intermediate/`
-- Every dropped observation: log the filter condition and the count dropped
-- Every merge: fill in `merge_report.md` — keys, left count, right count, post-merge count, unmatched counts
-- If merge keys are ambiguous or missing: stop, document the problem, and ask the user for clarification
-- If two source files contain overlapping variables with different values: report the conflict, do not silently choose one
-
----
-
-## 6. Task Completion Report（任务完成报告）
-
-**每次任务完成后，必须生成一份中文报告**，保存到 `reports/` 目录，文件名格式为 `report_<task-slug>_<YYYYMMDD>.md`。
-
-报告必须包含以下章节：
-
-| 章节 | 内容 |
-|------|------|
-| **任务背景** | 任务目标、触发原因、数据或问题描述 |
-| **执行过程** | 按步骤列出做了什么，包括脚本名、输入输出、关键参数 |
-| **关键结果** | 数量统计（行数、列数、匹配率等）均须来自日志，不得估算 |
-| **数据质量说明** | 跳过/合并的文件、缺失率、已知问题 |
-| **输出文件清单** | 每个输出文件的路径、行数、列数（来自日志） |
-| **证据链** | 每个关键数字对应的脚本路径 → 日志路径 |
-| **待办/遗留问题** | 本次未解决或需下一步跟进的事项 |
-
-**报告规则：**
-- 全文中文
-- 所有数字必须可追溯到日志文件，不得凭记忆填写
-- 报告本身不包含任何数据内容（无行内数据、无样本记录）
-- 报告完成后提交到 git（`git add reports/report_*.md`）
-
----
-
-## 7. Data Protection and Version Control
-
-The following directories contain survey microdata or derived individual-level data and are subject to data protection requirements. They **must never be committed to git or pushed to any remote repository (including GitHub)**:
-
-| Directory | Reason |
-|-----------|--------|
-| `input/data/` | Raw CHNS survey microdata — licensed, individual-level |
-| `data/raw/` | Raw data mirror — same protection as above |
-| `data/intermediate/` | Derived individual-level datasets during processing |
-| `data/processed/` | Final merged panel and codebook — individual-level |
-| `logs/` | May contain row counts and identifiers from data runs |
-
-These paths are listed in `.gitignore`. Do not remove them from `.gitignore` under any circumstance.
-
-**Enforcement rules for Claude Code:**
-
-- **Never `git add`** any file under the above directories, even if explicitly asked
-- **Never commit** `chns_merged_panel.csv`, `chns_codebook.csv`, or any `.parquet` file
-- **Never push** data files to any remote; if a user asks, explain the data protection requirement and refuse
-- Before any `git add .` or `git add -A`, verify no data files are staged
-- Replication packages (for sharing) include **scripts and reports only** — never the data itself
-
----
-
-## 8. Research Integrity Rules
-
-Full canonical list: [`docs/INTEGRITY-RULES.md`](docs/INTEGRITY-RULES.md)
-
-Short reference:
-
-1. Never modify `data/raw/`
-2. Never fabricate results, citations, sample sizes, coefficients, p-values, or robustness checks
-3. Never claim an analysis ran without a corresponding script and log on disk
-4. Never silently drop observations
-5. Always use project-relative paths
-6. Mark all causal claims with identification strength: `[descriptive]` / `[correlational]` / `[quasi-experimental: DiD/IV/RD]` / `[experimental]`
-7. If data are insufficient, stop and report infeasibility — never invent a workaround
-8. Every merge must report pre/post row counts, match rates, and duplicate diagnostics
-9. If merge keys are ambiguous or missing, stop and ask — never guess
-10. Preserve an evidence trail for every table, figure, and number: script path + log path + output path
-11. Keep code execution separate from narrative interpretation
-
----
-
-## 9. Survey Microdata Pipeline — Engineering Rules
-
-Lessons distilled from CHNS (2026-05-29) and CHARLS (2026-06-02) pipeline runs. Apply these rules to any new survey dataset pipeline.
-
-### 9.1 Codebook Requirements
-
-**Every codebook CSV must include a `description` column** populated from the source data's native variable labels.
-
-- For Stata `.dta` files: read labels via `pyreadstat` metadata — `meta.column_labels` (list aligned with `meta.column_names`)
-- Write a dedicated enrichment script (e.g., `*_08_enrich_codebook.py`) that scans all raw `.dta` files with `metadataonly=True` and back-fills descriptions into the codebook after export
-- Pipeline-derived columns (e.g., `WAVE`, `N_CHILDREN_W2013`, `EXIT_INTERVIEWED_W2020`) have no Stata label; add manual descriptions in the enrichment script
-- Target coverage ≥ 99%; log how many variables received descriptions and how many remain empty
-- Column order in codebook: `variable_name`, `description`, then statistics columns
-
-### 9.2 Memory Management for Wide DataFrames
-
-CHARLS-style survey data routinely produces panels with 10,000–25,000 columns after cross-wave stacking. These rules prevent OOM failures:
-
-1. **Indicator join must use key columns only.** In `do_merge`, the intermediate join used to count matched/unmatched rows must operate on `left[keys]`, never on the full left panel:
-   ```python
-   # WRONG — copies entire 20k-col panel:
-   ind = left.merge(right[keys], on=keys, how="left", indicator=True)
-   # CORRECT — copies only key columns:
-   ind = left[keys].merge(right[keys].drop_duplicates(), on=keys, how="left", indicator=True)
-   ```
-
-2. **Supplement scripts must load key columns only.** Any script that merges auxiliary modules into an already-wide panel should:
-   - Load only `[ID, WAVE, HOUSEHOLDID, COMMUNITYID]` from the wide parquet (not all 19k+ cols)
-   - Merge supplements against this slim key frame → save as a separate `*_supplement.parquet`
-   - Let the export script do the final column-join
-
-3. **Parquet intermediate files are preferred** over CSV for intermediate stages (faster I/O, preserves dtypes). Use `df.to_parquet()` with `write_parquet()` wrapper that calls `clean_dtypes()` first.
-
-4. **CSV export for very wide panels** should be done in row chunks (`pd.read_csv(..., chunksize=N)` or `pq.ParquetFile.iter_batches(batch_size=N)`) to avoid loading the full panel into RAM.
-
-### 9.3 Mixed-Type Column Handling (Stata Cross-Wave Stacking)
-
-When stacking `.dta` files from multiple waves with `pd.concat`, object-dtype columns can contain mixed Python types (e.g., `str` from one wave, `float` from another). This causes `ArrowTypeError` when writing to parquet. Always call `clean_dtypes(df)` before `df.to_parquet()`.
-
-The `clean_dtypes` function must:
-- Decode `bytes` → `str` (pyreadstat can return bytes for some Stata string variables)
-- For object columns with mixed `str + numeric`: check if ALL string values are empty (Stata missing sentinel `""`); if so, coerce the entire column to numeric via `pd.to_numeric`
-- For mixed str + numeric where strings have content: convert all values to `str`
-- Use head+tail sampling (e.g., 200 rows each) for type detection, NOT a full-column `.apply(type)` scan — the full scan is O(n × cols) and takes tens of minutes on wide DataFrames
-
-### 9.4 Merge Duplicate Column Prevention
-
-When merging modules into a growing panel with `suffixes=("", "_right")`, columns like `HOUSEHOLDID` and `COMMUNITYID` that exist in both left and right will generate `HOUSEHOLDID_right` in every merge, accumulating duplicates.
-
-**Rule:** In the pre-merge drop step, drop ALL non-key columns that already exist in the panel — including `HOUSEHOLDID` and `COMMUNITYID`. Do not exempt them:
-
-```python
-# WRONG — HOUSEHOLDID/COMMUNITYID exempted, causing _right chains:
-drop = [c for c in module.columns if c in existing and c not in keys + ["HOUSEHOLDID", "COMMUNITYID"]]
-
-# CORRECT — drop everything already in panel except merge keys:
-drop = [c for c in module.columns if c in existing and c not in keys]
+```
+project-root/
+├── .research/              # 研究状态（跨会话持久化）
+├── .paper/                 # 论文 manifest
+├── data/raw/               # 原始数据（只读）
+├── data/clean/             # 清洗数据
+├── code/                   # 可复现代码
+├── results/tables/         # 回归表
+├── results/figures/        # 图表
+└── manuscript/             # 手稿
 ```
 
-As a safety net, `write_parquet()` should also deduplicate column names before writing:
-```python
-df = df.loc[:, ~df.columns.duplicated()]
-```
+### 新项目初始化流程
 
-### 9.5 Cross-Wave File Naming Differences
+1. `task-organizer` Agent 确认研究设计
+2. 按标准结构创建目录
+3. 初始化 `.research/state.json`
+4. 数据搜索 → 清洗 → 建模 → 产出
 
-Survey waves often differ in file naming conventions. Always use a case-insensitive file finder (`find_file()` helper) rather than hardcoded names:
+### Manifest 规则
 
-- CHARLS 2011: all filenames **lowercase** (`demographic_background.dta`)
-- CHARLS 2013+: **CamelCase** (`Demographic_Background.dta`)
-- Module availability varies by wave (e.g., no `Health_Care_and_Insurance.dta` in 2020)
-- Variable availability within same-named modules varies by wave
-
-Encode wave→filename mappings explicitly in the script (a dict per module) rather than relying on glob patterns.
-
-### 9.6 Python Environment Notes
-
-- CHARLS pipeline uses: `C:\Users\zhuch\.conda\envs\gnn\python.exe` (Python 3.10)
-- CHNS pipeline used: `C:\Users\zhuch\.conda\envs\snipar_env\python.exe` (Python 3.9, currently broken)
-- Required packages: `pandas`, `pyreadstat`, `pyarrow`
-- Install via: `gnn_python -m pip install pyreadstat pyarrow pandas --only-binary :all:`
-- Python 3.9 note: avoid `X | Y` type unions and `list[str]` annotations; use `Optional[X]` and `List[str]` from `typing`
+- 每个阶段结束时更新 `.research/state.json`
+- 切换会话时先恢复 manifest 上下文
+- 跨 Agent 产物用统一 Schema 约束
 
 ---
 
-## 10. Paper Replication — Subsample Extraction
+## 十五、Agent 与 Skill 速查
 
-This repo supports extracting analysis-ready subsamples from raw survey panels to replicate published papers. The pattern was established with the CHARLS LTCI replication (Zhang et al. 2026, 2026-06-03).
+| 7 个 Agent | 12 个 Skill | 关联 |
+|-----------|------------|------|
+| `lit-reviewer` | `literature-review`, `data-search` | [AGENTS.md](./AGENTS.md) |
+| `data-searcher` | `data-search` | |
+| `task-organizer` | `task-execution`, `subagent-dispatch`, `mcp-orchestration` | |
+| `data-cleaner` | `data-overview` | |
+| `model-runner` | `statistical-modeling` | [TOOLS.md](./TOOLS.md) |
+| `viz-maker` | `data-viz` | |
+| `paper-polisher` | `paper-polish` | |
 
-### 10.1 Three-Script Pipeline
+---
 
-Every paper replication subsample follows three scripts, numbered `<dataset>_10/11/12` (or higher to avoid collision with the main pipeline):
+## 十六、外部参考
 
-| Script | Role | Output |
-|--------|------|--------|
-| `*_10_discover_vars.py` | Read `.dta` metadata with `metadataonly=True` across all relevant waves and modules; log all variable names + Stata labels; flag variables matching paper keywords | `data/processed/*_10_var_list.csv` |
-| `*_11_<paper>_subsample.py` | Load only the needed columns per wave, apply the paper's sample filter, construct all outcome/treatment/control variables, save the analysis-ready dataset | `data/processed/*_subsample.parquet` + `.csv` |
-| `*_12_<paper>_codebook.py` | Read the subsample parquet, compute per-variable statistics, attach paper-level definitions and target means, flag mismatches | `data/processed/*_codebook.csv` |
-
-**All three outputs go to `data/processed/`** — never `data/intermediate/` for files the researcher will use directly.
-
-### 10.2 Variable Discovery Protocol
-
-Before writing `charls_11`, always run `charls_10` first to confirm actual variable names for each concept. Do not assume variable names from paper descriptions alone — names differ across waves and dataset versions.
-
-The discovery script must:
-- Use `pyreadstat.read_dta(path, metadataonly=True)` — never load full data for discovery
-- Scan 8–10 modules × 3+ waves in a single run
-- Log every variable whose name OR label matches the keyword list
-- Export a CSV with columns `[wave, module, file, var_name, label, flagged]`
-
-### 10.3 Wave-Specific Variable Routing (CHARLS Lessons)
-
-CHARLS variable names and encoding change across waves. Hard-won rules from the LTCI replication:
-
-**Naming conventions:**
-- CHARLS 2011: all module filenames **lowercase** (`family_transfer.dta`)
-- CHARLS 2013+: **CamelCase** (`Family_Transfer.dta`)
-- CHARLS 2018: some modules renamed (`Work_Retirement.dta`, not `Work_Retirement_and_Pension.dta`)
-- Always use `find_file(wave_dir, *candidates)` — never hardcode a single filename
-
-**Demographic variable priority per wave:**
-
-| Variable | 2011 | 2013 | 2018 |
-|----------|------|------|------|
-| Birth year | `BA002_1` | `ZBA002_1` (preloaded) then `BA002_1` | `BA004_W3_1` (full coverage) |
-| Gender | `RGENDER` | Not in demo file — fill from 2011 baseline | `XRGENDER` |
-| Hukou | `BC001` | `ZBC001` (preloaded) | Not in demo file — fill from baseline |
-| Marital | `BE001` | `BE001` | `BE001` |
-| Education | `BD001` | `ZBD001` (preloaded; `BD001` = update only, sparse) | `BD001_W2_4` |
-
-**ID format differs across waves** (2011 = 11 chars, 2013+ = 12 chars). Cross-wave baseline filling by ID fails without an official crosswalk file. Document this limitation; do not silently assume the fill succeeded.
-
-**When a variable is "preloaded" (Z-prefix in 2013):** use it when the direct variable is sparse (update-only). Always coalesce: `series.fillna(other_series)`.
-
-### 10.4 CHARLS-Specific Variable Encoding Gotchas
-
-These encoding rules were validated against paper Table 2 descriptive statistics and must be applied to any future CHARLS replication:
-
-**Education (BD001):**
-- Value 4 = primary school **graduate** (小学毕业) — this is "primary or less"
-- Value 5 = middle school (初中毕业) — this is where "middle school and above" starts
-- Correct threshold: `BD001 >= 5` (NOT `>= 4`)
-
-**Health insurance (EA001S / EA001_W4_S):**
-- 2011/2013: multi-select, each variable is **NULL when not selected**, value = type number when selected. Detection: `.notna().any()`
-- 2018: multi-select, but each variable is **0 when not selected**, non-zero when selected. Detection: `(df[ins_cols] != 0).any(axis=1)`
-- "No insurance" sentinel: `EA001S10` (2011/2013) / `EA001_W4_S12` (2018) — non-null/non-zero → uninsured
-
-**Marital status (BE001):**
-- Value 1 = married, living together
-- Value 2 = married, living apart (temporary separation)
-- Paper's "Married = 0, Others = 1": use `BE001 > 2` (values 1 AND 2 are "married")
-
-**Non-agricultural employment (CHARLS 2011/2013):**
-- FA001=1 respondents (agricultural workers) are routed **away from FA002** — they never answer it
-- FC014 captures whether agricultural-primary workers also held non-agri jobs
-- Correct construction: `FA002==1 OR FC014==1 OR FA003==1 OR FC015==1`
-- Do NOT use FA002 alone; it misses the agri+non-agri group entirely
-
-**Agricultural employment:**
-- Use `FC001` ("worked for OTHER farmers/employers for wage"), NOT `FA001` ("any agricultural work ≥10 days" — includes own-farm)
-
-**City identification for LTCI pilots:**
-- PSU.dta (2011/2013) contains a `CITY` string field with city name in Chinese
-- Use partial string matching against the 12 pilot city names
-- 2018 has no PSU file; use `Sample_Infor.dta` + community ID mapping from 2011/2013 PSU
-
-### 10.5 Codebook Validation Against Paper
-
-The `*_12_codebook.py` script must include a `mean_match` column comparing our constructed variable means against the paper's Table 2 (or equivalent descriptive statistics table). Thresholds:
-
-| Match label | Criterion |
-|-------------|-----------|
-| `CLOSE` | `|our_mean − paper_mean| < 0.02` |
-| `MODERATE` | `0.02 ≤ diff < 0.10` |
-| `DIFFERS` | `diff ≥ 0.10` |
-
-Any variable marked `DIFFERS` must have a documented explanation in the codebook `notes` column before the subsample is considered ready for regression.
-
-### 10.6 CHARLS LTCI Replication — Reference Numbers
-
-Baseline established 2026-06-03. Scripts: `charls_10/11/12_*`. Target paper: Zhang et al. (2026).
-
-| Variable | Achieved | Paper | Status |
-|----------|----------|-------|--------|
-| Sample N | 4,665 | 4,626 | ✓ |
-| Treat=1 | 358 | 357 | ✓ |
-| MARITAL | 0.075 | 0.074 | CLOSE |
-| EDUCATION | 0.530 | 0.534 | CLOSE |
-| HEALTH_INSURED | 0.960 | 0.965 | CLOSE |
-| HUKOU | 0.303 | 0.290 | CLOSE |
-| AGRI_EMPLOY | 0.057 | 0.075 | CLOSE |
-| NON_AGRI_EMPLOY | 0.401 | 0.462 | MODERATE |
-| GENDER | 0.473 | 0.450 | MODERATE |
-
-Remaining gap for `NON_AGRI_EMPLOY` (6.1 pp): attributable to questionnaire routing in 2011/2013 — some self-employed and family business workers are not captured by available CHARLS variables. Documented in codebook.
+- 「Claude Code 实证研究全流程讲解」BV14kRjBcEqP
+- [academic-research-skills (ARS)](https://github.com/Imbad0202/academic-research-skills) — 6.4k★ 学术研究 Skill 包
+- [ai-research-skills](https://github.com/WenyuChiou/ai-research-skills) — 15-skill 8-stage 目录
+- [Anthropic: Agentic Coding & Expertise](https://www.anthropic.com/research/claude-code-expertise)

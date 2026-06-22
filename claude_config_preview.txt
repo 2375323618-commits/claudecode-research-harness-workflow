@@ -1,0 +1,13 @@
+﻿I'll need to check a few common config locations. What would you like to do with your configuration?
+
+Here are the common options:
+
+- **View current settings** 鈥?I'll show you what's configured
+- **Change the model** 鈥?switch between Sonnet, Opus, Haiku, or Fable
+- **Set a theme** 鈥?toggle between light/dark
+- **Add permissions** 鈥?allow certain tools without prompting
+- **Set environment variables** 鈥?`DEBUG=true`, etc.
+- **Configure hooks** 鈥?automate behaviors (e.g., "before each commit, run lint")
+- **Toggle fast mode** 鈥?faster Opus output
+
+Which of these are you after? Or if you have a specific config change in mind, just describe it.

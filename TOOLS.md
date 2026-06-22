@@ -1,114 +1,182 @@
-# TOOLS.md - 环境与工具配置
+# TOOLS.md — 研究工具链
 
-> 记录小马工作站的工具链配置，OpenClaw 调度时参考。
+> 12 个 Skill + Python/Stata/API 调度 + 数据管道 + 环境配置。保持可复现。
 
 ---
 
-## 🤖 Claude Code
+## 一、Skill 架构总览
 
-| 项目 | 内容 |
-|---|---|
-| 版本 | 2.1.170 (Claude Code) |
-| 路径 | `C:\Program Files\ClaudeCode\claude.exe` |
-| 认证 | ✅ 已登录（OAuth，第一方 API） |
-| CLI 调用 | `claude -p "你的指令"`（非交互模式，用于 OpenClaw 调度） |
-
-### 常用调度命令
-
-```powershell
-# 单次任务（非交互，返回结果）
-claude -p "分析这个数据文件并生成报告"
-
-# 指定模型
-claude -p "任务" --model sonnet
-
-# 指定工作目录
-cd C:\path\to\project && claude -p "任务"
-
-# 附加系统提示
-claude -p "任务" --append-system-prompt "你是经济学研究助手"
-
-# 跳过权限确认（本地可信环境）
-claude -p "任务" --dangerously-skip-permissions
+```
+                    ┌── task-execution ──┐
+                    │ subagent-dispatch  │ ← 编排层
+                    │ mcp-orchestration  │
+                    └────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+   [数据层]              [分析层]              [产出层]
+        │                     │                     │
+  data-search           data-overview          data-viz
+  literature-review     statistical-modeling   paper-polish
+  exam-prep             policy-analysis        iterative-refinement
+  ai-tools-dispatch
 ```
 
-### 使用原则
+### 三层架构
 
-- **绝大多数任务**：`claude -p "指令" --dangerously-skip-permissions`
-- **涉及隐私数据/系统修改**：不加 `--dangerously-skip-permissions`，先问小马
-- 隐私数据的判断：小马的研究数据、论文草稿、个人凭证、系统配置变更
+| 层 | Skill | 职责 |
+|----|-------|------|
+| **编排层** | `task-execution`, `subagent-dispatch`, `mcp-orchestration` | 任务拆解、并行调度、外部 MCP 协调 |
+| **数据层** | `data-search`, `literature-review`, `data-overview` | 数据发现、文献检索、质量报告 |
+| **分析层** | `statistical-modeling`, `policy-analysis` | 建模、推断、政策评估 |
+| **产出层** | `data-viz`, `paper-polish`, `iterative-refinement` | 图表、论文、迭代精修 |
+| **辅助层** | `exam-prep`, `ai-tools-dispatch` | 备考、AI 工具选型 |
 
-## 🐍 Python 环境
+---
 
-| 项目 | 内容 |
-|---|---|
-| 版本 | Python 3.11.15 |
-| 路径 | 系统 PATH 中 |
+## 二、工具调度决策树
 
-### 已安装关键包
-
-| 包 | 版本 | 用途 |
-|---|---|---|
-| pandas | 3.0.3 | 数据处理 |
-| statsmodels | 0.14.6 | 统计建模 |
-| matplotlib | 3.11.0 | 基础可视化 |
-| seaborn | 0.13.2 | 统计图表 |
-| plotly | — | 交互式图表（需安装） |
-| scikit-learn | 1.6.1 | 机器学习 |
-| scipy | 1.17.1 | 科学计算 |
-| openpyxl | 3.1.5 | Excel 读写 |
-| xlsxwriter | 3.2.9 | Excel 写入 |
-| fastapi | 0.133.1 | API 服务搭建 |
-| openai | 2.24.0 | OpenAI API 调用 |
-
-> plotly 未安装，如需交互式图表可以 `pip install plotly`
-
-## 📊 Stata
-
-| 项目 | 内容 |
-|---|---|
-| 版本 | Stata 18 (MP) |
-| 路径 | `C:\Program Files\Stata18\StataMP-64.exe` |
-| CLI 模式 | `StataMP-64.exe /e do script.do` |
-
-### Stata 调度示例
-```powershell
-# 批处理模式运行 do 文件
-& "C:\Program Files\Stata18\StataMP-64.exe" /e do analysis.do
-
-# 带日志输出
-& "C:\Program Files\Stata18\StataMP-64.exe" /e do analysis.do /o output.log
+```
+任务类型判断
+│
+├─ 数据清洗/预处理  → Python (pandas)           [data-cleaner Agent]
+├─ 描述统计/EDA     → Python (pandas+seaborn)   [data-cleaner Agent]
+├─ OLS/面板/IV      → Python (statsmodels) 首选  [model-runner Agent]
+│                     Stata 备选（用户明确要求时）
+├─ 时间序列 ARIMA   → Python (statsmodels)       [model-runner Agent]
+├─ GARCH/波动率     → Python (arch)              [model-runner Agent]
+├─ Logit/Probit     → Python (statsmodels)       [model-runner Agent]
+├─ DID/RDD/PSM/SCM  → Python (linearmodels)      [model-runner Agent]
+├─ 协整/VECM/VAR    → Python (statsmodels)       [model-runner Agent]
+├─ SEM/空间计量     → Python (semopy/spreg)      [model-runner Agent]
+├─ 图表输出         → Python (matplotlib)        [viz-maker Agent]
+└─ 论文表格导出     → Python → CSV/Excel/LaTeX   [paper-polisher Agent]
 ```
 
-## 🖥️ 其他已安装工具
+### Python 优先规则
 
-| 工具 | 版本 | 路径 | 作用 |
-|---|---|---|---|
-| **Cursor** | 3.7.21 | `C:\Users\admin\AppData\Local\Programs\cursor` | AI 原生编辑器，内置 AI 对话+代码补全 |
-| **Opencode** | 1.17.4 | `C:\Users\admin\AppData\Roaming\npm\opencode.ps1` | 开源 coding agent CLI，Claude Code 替代品 |
-| **Git** | — | `C:\Program Files\Git\cmd\git.exe` | 版本控制 |
-| **Node.js** | — | `C:\Program Files\nodejs\node.exe` | JavaScript 运行时 |
-| **Miniconda** | — | `C:\Users\admin\miniconda3` | Python 环境管理 |
-| **Claude Desktop** | — | `C:\Users\admin\AppData\Local\Claude` | Claude 桌面版 |
-| **WSL** | — | `C:\Windows\system32\wsl.exe` | Linux 子系统 |
-| **npm** | — | 系统 PATH | Node 包管理器 |
+- 默认 `statsmodels` / `linearmodels` / `arch`
+- 仅在以下情况用 Stata：
+  1. 用户明确说「用 Stata」
+  2. Stata 命令在 Python 无等价包（如 `xtabond2` 可用 `linearmodels` 替代）
+  3. 用户提供的 `.do` 文件已有复杂逻辑
 
-### 各工具在 AI 工作流中的作用
+### Stata 执行流程
 
-| 工具 | 在 AI 工作流中的角色 |
-|---|---|
-| **Claude Code** | ⭐ 主力 coding agent。负责写代码、跑模型、做复杂分析。由 OpenClaw 通过 CLI 调度（非交互模式） |
-| **Cursor** | 当需要手动写/改代码时使用。AI 内嵌编辑器，写代码时自动补全/对话 |
-| **Opencode** | Claude Code 的开源替代。如果 Claude Code 遇到问题可以切过来试 |
-| **Git** | 版本控制，所有项目文件进 git，方便回滚和协作 |
-| **Node.js** | Claude Code 运行依赖；后续可能用于搭建 API 服务 |
-| **Miniconda** | Python 环境管理器。可以创建隔离的 Python 环境避免包冲突 |
-| **WSL** | 如果需要 Linux 环境（有些 Stata/Python 包 Windows 不支持） |
+```
+写 .do 文件 → ./stata.ps1 job.do -Quiet → 读 .log 文件取结果
+```
 
-## 💻 云电脑基本信息
+---
 
-| 项目 | 内容 |
-|---|---|
-| 操作系统 | Windows Server 2022 / Windows 10+ |
-| Shell | PowerShell |
-| 工作区 | C:\Users\admin\.openclaw\workspace |
+## 三、Skill 间集成点
+
+### 数据流契约
+
+```
+data-search → data-overview
+  │ 产出: 数据源 URL/API/路径
+  └→ 输入: 原始数据文件
+                │
+                ▼
+data-overview → statistical-modeling
+  │ 产出: 清洗后数据 + 质量报告
+  └→ 输入: clean_df + codebook
+                │
+                ▼
+statistical-modeling → data-viz → paper-polish
+  │ 产出: 回归结果表 + 诊断统计量
+  └→ 输入: 系数矩阵 + 拟合值
+```
+
+### 跨 Skill 数据格式
+
+| 传递物 | 格式 | Schema |
+|--------|------|--------|
+| 数据源清单 | JSON | `{name, url, format, access_date, notes}` |
+| 变量字典 | Markdown table | `{variable, type, source, description}` |
+| 回归结果 | Python dict → JSON | `{coef, se, t, p, ci_low, ci_high, stars}` |
+| 图表规格 | Python dict | `{type, data, title, xlabel, ylabel, note}` |
+
+---
+
+## 四、环境配置
+
+### Python
+
+```python
+# 核心包
+import pandas as pd
+import numpy as np
+import statsmodels.api as sm          # OLS, Logit, GLM
+import statsmodels.formula.api as smf # R-style formula
+from linearmodels import PanelOLS, RandomEffects, IV2SLS
+from arch import arch_model           # GARCH
+from scipy import stats               # 统计检验
+import matplotlib.pyplot as plt
+import seaborn as sns
+```
+
+### Stata
+
+```
+$STATAMP = "C:\Program Files\Stata18\StataMP-64.exe"
+$STATA_WRAPPER = "./stata.ps1"   # PowerShell 包装脚本
+```
+
+### 中文字体（图表）
+
+```python
+import matplotlib.font_manager as fm
+# 自动检测: SimHei → Microsoft YaHei → fallback
+fonts = [f.name for f in fm.fontManager.ttflist if any(
+    keyword in f.name for keyword in ['SimHei', 'YaHei', 'Songti']
+)]
+plt.rcParams['font.sans-serif'] = [fonts[0]] if fonts else ['sans-serif']
+plt.rcParams['axes.unicode_minus'] = False
+```
+
+### API 代理
+
+```
+claude_proxy/server.js  →  DeepSeek API 代理 (PORT 15721)
+                       →  环境变量 DEEPSEEK_API_KEY 读取密钥
+```
+
+---
+
+## 五、新增 Skill 规范
+
+添加新 Skill 时遵循：
+
+1. **目录结构**：`skills/<skill-name>/SKILL.md`
+2. **命名**：kebab-case，动词优先（如 `data-search`），领域特定则加前缀
+3. **SKILL.md 最低内容**：
+   - `## 触发条件` — 何时激活
+   - `## 输入` — 需要的参数/文件
+   - `## 输出` — 产出物格式
+   - `## 工具链` — 调用的 Python 包 / Stata 命令
+   - `## 示例` — 至少一个完整示例
+
+---
+
+## 六、工作目录约定
+
+| 目录 | 用途 | 权限 |
+|------|------|------|
+| `data/raw/` | 原始数据 | 只读 |
+| `data/clean/` | 清洗后数据 | Agent 写入 |
+| `code/` | 分析代码 | Agent 生成，可复现 |
+| `results/tables/` | 回归表 | 自动导出 CSV/Excel |
+| `results/figures/` | 图表 | 自动导出 PNG/PDF |
+| `manuscript/` | 手稿 | paper-polisher 读写 |
+| `.research/` | 研究状态 | 跨会话持久化 |
+| `memory/` | 长期记忆 | 手动维护 |
+
+---
+
+## 参考来源
+
+- [ARS (6.4k★)](https://github.com/Imbad0202/academic-research-skills) — Skill 编排 + 引用核验体系
+- [ai-research-skills](https://github.com/WenyuChiou/ai-research-skills) — 15-skill 目录 + 3-gate 决策
+- [Anthropic: Claude Code Expertise Study](https://www.anthropic.com/research/claude-code-expertise) — 专家 vs 新手效能

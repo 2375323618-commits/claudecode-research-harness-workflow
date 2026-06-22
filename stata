@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Stata wrapper for bash/git-bash — delegates to the PowerShell wrapper
+# Usage: ./stata job.do [-q|--quiet]
+
+DO_FILE="$1"
+QUIET=""
+shift 2>/dev/null
+if [ "$1" = "-q" ] || [ "$1" = "--quiet" ]; then
+    QUIET="-Quiet"
+fi
+
+if [ ! -f "$DO_FILE" ]; then
+    echo "[Stata] Error: file not found: $DO_FILE" >&2
+    exit 1
+fi
+
+DO_ABS=$(realpath "$DO_FILE")
+echo "[Stata] Running: $DO_ABS"
+
+powershell.exe -File "C:\\Users\\admin\\.openclaw\\workspace\\stata.ps1" "$DO_ABS" $QUIET
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "[Stata] Done (exit code $EXIT_CODE)"
+else
+    echo "[Stata] Failed (exit code $EXIT_CODE)" >&2
+fi
+exit $EXIT_CODE
